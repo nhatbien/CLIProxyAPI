@@ -212,7 +212,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	// their marker placement and must not be rewritten. Cloaked requests always run
 	// section-independent ensure so cloaking's first-user marker cannot suppress
 	// system/latest-user breakpoints.
-	messagesPassthrough := !confirmedClaudeCode && claudeInboundMessagesPassthrough(ctx) && wirePolicy.OAuth && !wirePolicy.CloakConfigured
+	messagesPassthrough := claudeDirectMessagesPassthroughActive(ctx, e.cfg, wirePolicy)
 	cpaOwnsCacheControl := !messagesPassthrough && shouldEnsureCacheControl(body, cloaked, confirmedClaudeCode)
 	if cpaOwnsCacheControl {
 		body = ensureCacheControl(body)

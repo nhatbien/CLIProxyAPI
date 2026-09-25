@@ -1093,7 +1093,7 @@ func applyClaudeHeadersWithNativeProfile(
 	useAPIKey := !credentialUsesBearer
 	fp := resolveClaudeFingerprintPolicy(cfg, auth, apiKey)
 	wirePolicy, _ := resolveClaudeWirePolicy(cfg, auth, apiKey, confirmedClaudeCode)
-	messagesPassthrough := !confirmedClaudeCode && claudeInboundMessagesPassthrough(r.Context()) && wirePolicy.OAuth && !wirePolicy.CloakConfigured
+	messagesPassthrough := claudeDirectMessagesPassthroughActive(r.Context(), cfg, wirePolicy)
 	applyCLIFingerprint := !messagesPassthrough && (fp.ProfileClaudeCodeCLI || wirePolicy.Cloak)
 	preserveCallerFingerprint := messagesPassthrough || (!applyCLIFingerprint && !confirmedClaudeCode)
 	useOAuthBetas := fp.UseOAuthBetas

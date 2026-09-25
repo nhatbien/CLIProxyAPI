@@ -69,6 +69,19 @@ func claudeInboundMessagesPassthrough(ctx context.Context) bool {
 	return format == "claude" && passthrough
 }
 
+// claudeDirectMessagesPassthroughActive reports whether a direct Messages
+// caller on a Claude OAuth credential keeps its own body, headers and betas
+// instead of being cloaked. It is opt-in via claude-messages-passthrough:
+// subscription OAuth rejects uncloaked third-party clients (429 rate_limit_error,
+// or 400 "Third-party apps now draw from your extra usage"), so the default
+// keeps the v7.3.16 auto cloak. Explicit per-credential cloak settings win.
+func claudeDirectMessagesPassthroughActive(ctx context.Context, cfg *config.Config, policy claudeWirePolicy) bool {
+	if cfg == nil || !cfg.ClaudeMessagesPassthrough {
+		return false
+	}
+	return !policy.ConfirmedClaudeCode && claudeInboundMessagesPassthrough(ctx) && policy.OAuth && !policy.CloakConfigured
+}
+
 // getWorkloadFromContext extracts workload identifier from the gin request headers.
 func getWorkloadFromContext(ctx context.Context) string {
 	if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil && ginCtx.Request != nil {
@@ -1429,7 +1442,7 @@ func applyCloakingInternal(
 	obfuscateSensitiveWords bool,
 ) ([]byte, bool, error) {
 	policy, settings := resolveClaudeWirePolicy(cfg, auth, apiKey, confirmedClaudeCode)
-	if claudeInboundMessagesPassthrough(ctx) && policy.OAuth && !policy.CloakConfigured {
+	if claudeDirectMessagesPassthroughActive(ctx, cfg, policy) {
 		policy.Cloak = false
 	}
 	if !policy.Cloak {

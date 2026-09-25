@@ -210,6 +210,14 @@ transient-error-cooldown-seconds: 0
 # "auto" behavior (cloak only non-Claude-Code clients).
 disable-claude-cloak-mode: false
 
+# When true, direct Anthropic Messages (/v1/messages) callers using a Claude OAuth credential
+# that has no explicit cloak settings keep their own body, headers and betas (only the OAuth
+# beta is added) instead of being cloaked. Default false cloaks them like any other
+# non-Claude-Code client. Warning: subscription OAuth rejects uncloaked third-party clients
+# (429 rate_limit_error / 400 "Third-party apps now draw from your extra usage") or bills
+# them to extra usage. A per-credential "cloak_mode" always takes precedence.
+claude-messages-passthrough: false
+
 # Provider-wide Claude settings.
 claude:
   # When true, scope quota cooldowns to the requested model rather than cooling down

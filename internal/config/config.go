@@ -161,6 +161,13 @@ type Config struct {
 	// the auth/OAuth token file). Default false preserves the per-client "auto" behavior.
 	DisableClaudeCloakMode bool `yaml:"disable-claude-cloak-mode" json:"disable-claude-cloak-mode"`
 
+	// ClaudeMessagesPassthrough lets direct Anthropic Messages (/v1/messages) callers on
+	// Claude OAuth credentials without explicit cloak settings keep their own body,
+	// headers and betas instead of being cloaked. Default false cloaks them like any
+	// other non-Claude-Code client; subscription OAuth rejects uncloaked third-party
+	// clients or bills them to extra usage.
+	ClaudeMessagesPassthrough bool `yaml:"claude-messages-passthrough" json:"claude-messages-passthrough"`
+
 	// OpenAICompatibility defines OpenAI API compatibility configurations for external providers.
 	OpenAICompatibility []OpenAICompatibility `yaml:"openai-compatibility" json:"openai-compatibility"`
 
