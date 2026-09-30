@@ -161,13 +161,6 @@ type Config struct {
 	// the auth/OAuth token file). Default false preserves the per-client "auto" behavior.
 	DisableClaudeCloakMode bool `yaml:"disable-claude-cloak-mode" json:"disable-claude-cloak-mode"`
 
-	// ClaudeMessagesPassthrough lets direct Anthropic Messages (/v1/messages) callers on
-	// Claude OAuth credentials without explicit cloak settings keep their own body,
-	// headers and betas instead of being cloaked. Default false cloaks them like any
-	// other non-Claude-Code client; subscription OAuth rejects uncloaked third-party
-	// clients or bills them to extra usage.
-	ClaudeMessagesPassthrough bool `yaml:"claude-messages-passthrough" json:"claude-messages-passthrough"`
-
 	// OpenAICompatibility defines OpenAI API compatibility configurations for external providers.
 	OpenAICompatibility []OpenAICompatibility `yaml:"openai-compatibility" json:"openai-compatibility"`
 
@@ -191,6 +184,9 @@ type Config struct {
 	//
 	// NOTE: This applies only to OAuth credentials and does not affect per-credential request-scoped-errors under *-api-key.
 	OAuthRequestScopedErrors map[string][]RequestScopedErrorRule `yaml:"oauth-request-scoped-errors,omitempty" json:"oauth-request-scoped-errors,omitempty"`
+
+	// OAuthSettings defines per-channel model settings (such as max-context-length) applied to OAuth/file-backed auth entries.
+	OAuthSettings map[string][]OAuthModelSetting `yaml:"oauth-settings,omitempty" json:"oauth-settings,omitempty"`
 
 	// Payload defines default and override rules for provider payload parameters.
 	Payload PayloadConfig `yaml:"payload" json:"payload"`

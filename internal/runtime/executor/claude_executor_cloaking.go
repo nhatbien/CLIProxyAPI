@@ -12,12 +12,12 @@ import (
 	"time"
 	"unicode/utf16"
 
-	claudeauth "github.com/router-for-me/CLIProxyAPI/v7/internal/auth/claude"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/runtime/executor/helps"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
+	claudeauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claude"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
+	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -39,47 +39,6 @@ func resolveIncomingClaudeHeaders(ctx context.Context, incoming http.Header) htt
 func detectIncomingClaudeCodeRequest(ctx context.Context, incoming http.Header, payload []byte, countTokens bool, cfg *config.Config) (http.Header, helps.ClaudeCodeRequestDetection) {
 	resolved := resolveIncomingClaudeHeaders(ctx, incoming)
 	return resolved, helps.DetectClaudeCodeRequest(resolved, payload, countTokens, cfg)
-}
-
-type claudeInboundFormatContextKey struct{}
-type claudeDirectMessagesPassthroughContextKey struct{}
-
-func withClaudeInboundFormat(ctx context.Context, format string) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, claudeInboundFormatContextKey{}, strings.ToLower(strings.TrimSpace(format)))
-}
-
-func withClaudeDirectMessagesPassthrough(ctx context.Context, enabled bool) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, claudeDirectMessagesPassthroughContextKey{}, enabled)
-}
-
-// claudeInboundMessagesPassthrough reports a direct Anthropic Messages caller.
-// Translated Responses, Chat, and Gemini requests are cloaked separately.
-func claudeInboundMessagesPassthrough(ctx context.Context) bool {
-	if ctx == nil {
-		return false
-	}
-	format, _ := ctx.Value(claudeInboundFormatContextKey{}).(string)
-	passthrough, _ := ctx.Value(claudeDirectMessagesPassthroughContextKey{}).(bool)
-	return format == "claude" && passthrough
-}
-
-// claudeDirectMessagesPassthroughActive reports whether a direct Messages
-// caller on a Claude OAuth credential keeps its own body, headers and betas
-// instead of being cloaked. It is opt-in via claude-messages-passthrough:
-// subscription OAuth rejects uncloaked third-party clients (429 rate_limit_error,
-// or 400 "Third-party apps now draw from your extra usage"), so the default
-// keeps the v7.3.16 auto cloak. Explicit per-credential cloak settings win.
-func claudeDirectMessagesPassthroughActive(ctx context.Context, cfg *config.Config, policy claudeWirePolicy) bool {
-	if cfg == nil || !cfg.ClaudeMessagesPassthrough {
-		return false
-	}
-	return !policy.ConfirmedClaudeCode && claudeInboundMessagesPassthrough(ctx) && policy.OAuth && !policy.CloakConfigured
 }
 
 // getWorkloadFromContext extracts workload identifier from the gin request headers.
@@ -1347,7 +1306,6 @@ type claudeWirePolicy struct {
 	OAuth                bool // real OAuth token runtime identity
 	ProfileClaudeCodeCLI bool // request fingerprint looks like Claude Code CLI
 	ConfirmedClaudeCode  bool
-	CloakConfigured      bool // operator explicitly configured cloak behavior
 	Cloak                bool
 }
 
@@ -1358,6 +1316,9 @@ type claudeCloakSettings struct {
 }
 
 func resolveClaudeWirePolicy(cfg *config.Config, auth *cliproxyauth.Auth, apiKey string, confirmedClaudeCode bool) (claudeWirePolicy, claudeCloakSettings) {
+	if auth != nil && auth.AuthKind() == cliproxyauth.AuthKindAPIKey {
+		cfg = cfg.ForAPIKey()
+	}
 	cloakCfg := resolveClaudeKeyCloakConfig(cfg, auth)
 	attrMode, attrStrict, attrWords, attrCache := getCloakConfigFromAuth(auth)
 
@@ -1394,7 +1355,6 @@ func resolveClaudeWirePolicy(cfg *config.Config, auth *cliproxyauth.Auth, apiKey
 		OAuth:                fp.AuthIsOAuthToken,
 		ProfileClaudeCodeCLI: fp.ProfileClaudeCodeCLI,
 		ConfirmedClaudeCode:  confirmedClaudeCode,
-		CloakConfigured:      cloakConfigured,
 		Cloak:                (fp.ProfileClaudeCodeCLI || cloakConfigured) && !confirmedClaudeCode,
 	}
 	if confirmedClaudeCode {
@@ -1442,9 +1402,6 @@ func applyCloakingInternal(
 	obfuscateSensitiveWords bool,
 ) ([]byte, bool, error) {
 	policy, settings := resolveClaudeWirePolicy(cfg, auth, apiKey, confirmedClaudeCode)
-	if claudeDirectMessagesPassthroughActive(ctx, cfg, policy) {
-		policy.Cloak = false
-	}
 	if !policy.Cloak {
 		return payload, false, nil
 	}
